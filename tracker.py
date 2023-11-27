@@ -2,10 +2,10 @@ import time
 import threading as td
 import cv2 as cv
 import mediapipe as mp
-from pyfirmata import Arduino, SERVO, util
+from pyfirmata import Arduino, SERVO
 
-# initializing arduino
-port = 'COM6'
+# initializing arduino and servos
+port = 'COM6'   # depends on the port used
 board = Arduino(port)
 
 servoPin1 = 9   # horizontal
@@ -13,49 +13,50 @@ servoPin2 = 10  # vertical
 board.digital[servoPin1].mode = SERVO
 board.digital[servoPin2].mode = SERVO
 
-#initialize angles
-servoAngle1 = 90    # horizontal
-servoAngle2 = 45    # vertical
-
-mesh = mp.solutions.face_mesh
-live = cv.VideoCapture(1) # replace 0 by 1 for external webcam
-
+# hyper-parameters
 e = 0.02
 m = 5
+
 def moveServo(pin, angle) :
     if angle<180 and angle>0 :
         board.digital[pin].write(angle)
 
-def feedback(frame, X, Y) : # instead of 0.5(strict inequality) give minute error lease
+def show_feedback(frame, X, Y) : # instead of 0.5(strict inequality) give minute error lease
     H, W, Z = frame.shape
     if X>0.5 :
-        # moveAntiClock(X*1000)
+        # AntiClock
         cv.arrowedLine(frame, (int(0.7*W), int(0.5*H)), (int((0.7+0.3*(X-0.5)/0.5)*W), int(0.5*H)), (0, 255, 0), 2)
     else :
-        # moveClock(X*1000)
+        # Clock
         cv.arrowedLine(frame, (int(0.3*W), int(0.5*H)), (int((0.3+0.3*(X-0.5)/0.5)*W), int(0.5*H)), (0, 255, 0), 2)
     if Y>0.5:
-        # moveDown(Y)
+        # Down
         cv.arrowedLine(frame, (int(0.5*W), int(0.7*H)), (int(0.5*W), int((0.7+0.3*(Y-0.5)/0.5)*H)), (0, 255, 0), 2)
     else :
-        # moveUp(Y)
+        # Up
         cv.arrowedLine(frame, (int(0.5*W), int(0.3*H)), (int(0.5*W), int((0.3+0.3*(Y-0.5)/0.5)*H)), (0, 255, 0), 2)
-    if abs(X-0.5)<e and abs(Y-0.5)<e :
-        with angles_lock :
-            locked = True
+    
+    with angles_lock :
+        locked1 = abs(X-0.5)<e
+        locked2 = abs(Y-0.5)<e
+        l1, l2 = locked1, locked2
+    
+    if l1 and l2 :
         cv.putText(frame, "TARGET LOCKED", (int(0.05*W), int(0.05*H)), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-        cv.circle(frame, (int(X*W), int(Y*H)), 5, (0, 0, 255), 1)
+        cv.circle(frame, (int(X*W), int(Y*H)), 10, (0, 0, 255), 2)
     else :
-        with angles_lock :
-            locked = False
         cv.circle(frame, (int(X*W), int(Y*H)), 5, (0, 255, 0), 1)
     cv.imshow("Display", frame)
     
 def opencv() :
-    global servoAngle1, servoAngle2, locked
+    mesh = mp.solutions.face_mesh   # mediapipe face recognition
+    live = cv.VideoCapture(1) # replace 0 by 1 for external webcam
+    global servoAngle1, servoAngle2, locked1, locked2
     servoAngle1 = 90
     servoAngle2 = 45
-    locked = False
+    locked1 = False
+    locked2 = False
+
     with mesh.FaceMesh(refine_landmarks=True) as face_mesh :
         while live.isOpened() :
             success, frame = live.read()
@@ -66,6 +67,7 @@ def opencv() :
                 H, W, Z = image.shape
                 if points :
                     marks = points[0].landmark
+                    show_feedback(image, marks[6].x, marks[6].y)
                     with angles_lock :
                         a1, a2 = servoAngle1, servoAngle2
                     if a1<=180 and a1>=0 :
@@ -78,7 +80,6 @@ def opencv() :
                         a2 = 45
                     with angles_lock:
                         servoAngle1, servoAngle2 = a1, a2
-                    feedback(image, marks[6].x, marks[6].y)
                 else :
                     cv.putText(image, "TARGET NOT DETECTED", (int(0.05*W), int(0.05*H)), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
                     cv.imshow("Display", image)
@@ -89,22 +90,34 @@ def opencv() :
     live.release()
     cv.destroyAllWindows()
 
-def control_servos() :
+def control_servo1() :
+    islocked = False
     while True :
         with angles_lock :
-            a1, a2 = servoAngle1, servoAngle2
-        print(a1, a2)
-        moveServo(servoPin1, a1)
-        moveServo(servoPin2, a2)
-        time.sleep(0.5)
+            angle, islocked = servoAngle1, locked1
+        if angle<180 and angle>0 and not islocked :
+            board.digital[servoPin1].write(angle)
+            time.sleep(0.5)
+
+def control_servo2() :
+    islocked = False
+    while True :
+        with angles_lock :
+            angle, islocked = servoAngle2, locked2
+        if angle<180 and angle>0 and not islocked :
+            board.digital[servoPin2].write(angle)
+            time.sleep(0.5)
+
+board.digital[servoPin1].write(90)
+board.digital[servoPin2].write(45)
+print('servos initialized.')
+time.sleep(5)
 
 angles_lock = td.Lock()
-moveServo(servoPin1, 90)
-moveServo(servoPin2, 45)
-print('initialized')
-time.sleep(10)
 opencv_thread = td.Thread(target = opencv)
-servo_thread = td.Thread(target = control_servos)
+servo1_thread = td.Thread(target = control_servo1)
+servo2_thread = td.Thread(target = control_servo2)
 
 opencv_thread.start()
-servo_thread.start()
+servo1_thread.start()
+servo2_thread.start()

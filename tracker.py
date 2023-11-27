@@ -85,7 +85,7 @@ def opencv() :
                 if(cv.waitKey(20) & 0xFF == ord('d')) :
                     break
             else :
-                continue  
+                continue
     live.release()
     cv.destroyAllWindows()
 
@@ -102,7 +102,7 @@ angles_lock = td.Lock()
 moveServo(servoPin1, 90)
 moveServo(servoPin2, 45)
 print('initialized')
-time.sleep(5)
+time.sleep(10)
 opencv_thread = td.Thread(target = opencv)
 servo_thread = td.Thread(target = control_servos)
 

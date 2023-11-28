@@ -49,33 +49,32 @@ def show_feedback(frame, X, Y) : # instead of 0.5(strict inequality) give minute
     cv.imshow("Display", frame)
     
 def opencv() :
-    mesh = mp.solutions.face_mesh   # mediapipe face recognition
-    live = cv.VideoCapture(1) # replace 0 by 1 for external webcam
     global servoAngle1, servoAngle2, locked1, locked2
     servoAngle1 = 90
     servoAngle2 = 45
     locked1 = False
     locked2 = False
 
-    with mesh.FaceMesh(refine_landmarks=True) as face_mesh :
+    with mp.solutions.hands.Hands(static_image_mode=False, max_num_hands=2) as hands :
+        live = cv.VideoCapture(1) # replace 0 by 1 for external webcam
         while live.isOpened() :
             success, frame = live.read()
             image = cv.flip(frame, 1)
             if success :
-                output = face_mesh.process(image)
-                points = output.multi_face_landmarks
+                output = hands.process(cv.cvtColor(image, cv.COLOR_BGR2RGB))
+                points = output.multi_hand_landmarks
                 H, W, Z = image.shape
                 if points :
                     marks = points[0].landmark
-                    show_feedback(image, marks[6].x, marks[6].y)
+                    show_feedback(image, marks[9].x, marks[9].y)
                     with angles_lock :
                         a1, a2 = servoAngle1, servoAngle2
                     if a1<=180 and a1>=0 :
-                        a1 -= m * (marks[6].x - 0.5)
+                        a1 -= m * (marks[9].x - 0.5)
                     else :
                         a1 = 90
                     if a2<=180 and a2>=0 : 
-                        a2 -= m * (marks[6].y - 0.5)
+                        a2 -= m * (marks[9].y - 0.5)
                     else :
                         a2 = 45
                     with angles_lock:
@@ -97,7 +96,7 @@ def control_servo1() :
             angle, islocked = servoAngle1, locked1
         if angle<180 and angle>0 and not islocked :
             board.digital[servoPin1].write(angle)
-            time.sleep(0.5)
+            time.sleep(1)
 
 def control_servo2() :
     islocked = False

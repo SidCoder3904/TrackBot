@@ -54,7 +54,7 @@ def opencv() :
     servoAngle2 = 45
     locked1 = False
     locked2 = False
-
+    
     with mp.solutions.hands.Hands(static_image_mode=False, max_num_hands=2) as hands :
         live = cv.VideoCapture(1) # replace 0 by 1 for external webcam
         while live.isOpened() :
@@ -68,7 +68,7 @@ def opencv() :
                     marks = points[0].landmark
                     show_feedback(image, marks[9].x, marks[9].y)
                     with angles_lock :
-                        a1, a2 = servoAngle1, servoAngle2
+                        a1, a2 = prev, servoAngle2
                     if a1<=180 and a1>=0 :
                         a1 -= m * (marks[9].x - 0.5)
                     else :
@@ -90,13 +90,23 @@ def opencv() :
     cv.destroyAllWindows()
 
 def control_servo1() :
+    global prev
+    prev = 90
     islocked = False
     while True :
         with angles_lock :
             angle, islocked = servoAngle1, locked1
         if angle<180 and angle>0 and not islocked :
+            if angle -prev > 3 :
+                angle = prev + 3
+            if prev -angle > 3 :
+                angle = prev - 3
+            angle = int(angle)
             board.digital[servoPin1].write(angle)
-            time.sleep(1)
+            with angles_lock :
+                prev = angle
+            print(angle)
+            time.sleep(5)
 
 def control_servo2() :
     islocked = False

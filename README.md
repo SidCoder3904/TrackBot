@@ -1,6 +1,6 @@
 # TrackBot
 
-TrackBot is an advanced robotic system designed to locate, track, and follow a target using monocular depth perception. The project leverages Python, OpenCV, MediaPipe, and Arduino to create a droid with real-time tracking capabilities, achieving over 90% accuracy in servo motor movements and precise 3-D trajectory mapping. A detailed ppt has been provided for project overview in the repo
+TrackBot is an advanced robotic system designed to locate, track, and follow a target using monocular depth perception. The project leverages Python, OpenCV, MediaPipe, and Arduino to create a droid with real-time tracking capabilities, achieving over 90% accuracy in servo motor movements and precise 3-D trajectory mapping. A detailed ppt and demonstration video has been provided for project overview in the repo
 
 ## Features
 
